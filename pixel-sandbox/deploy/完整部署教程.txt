@@ -1,0 +1,459 @@
+# 像素沙盒 pixel-sandbox · 联机服务器完整部署教程（超详细）
+
+> 适用场景：你有一台 **Linux 服务器**（可能是较老内核），通过 **宝塔面板** 管理，
+> 想让别人用 **网址（域名）** 进入游戏并 **多人联机**。
+> 本教程从零讲起，每一步都给命令和截图级说明。服务器不在你本机也没关系，
+> 把本游戏整个文件夹上传到服务器后，照着做即可。
+
+---
+
+## 目录
+
+1. [整体架构与访问链路](#1-整体架构与访问链路)
+2. [服务器环境准备（老内核 / glibc 注意事项）](#2-服务器环境准备)
+3. [安装 Node.js 16](#3-安装-nodejs-16)
+4. [安装 PM2 进程管理器](#4-安装-pm2-进程管理器)
+5. [上传游戏项目到服务器](#5-上传游戏项目到服务器)
+6. [启动游戏服务端](#6-启动游戏服务端)
+7. [放行端口（三层防火墙）](#7-放行端口三层防火墙)
+8. [用域名访问 + Nginx 反向代理（关键：联机必看）](#8-用域名访问--nginx-反向代理)
+9. [验证联机是否成功](#9-验证联机是否成功)
+10. [世界存档（自动落盘 / 重启恢复）](#10-世界存档自动落盘--重启恢复)
+11. [开机自动启动游戏](#11-开机自动启动游戏)
+12. [日常运维命令速查](#12-日常运维命令速查)
+13. [常见问题排障 FAQ](#13-常见问题排障-faq)
+14. [重要参数一览表](#14-重要参数一览表)
+
+---
+
+## 1. 整体架构与访问链路
+
+```
+玩家浏览器
+   │  http://你的域名  （网页 + 资源）
+   │  ws://你的域名    （WebSocket 联机数据）
+   ▼
+宝塔 Nginx 反向代理  （80 / 443 端口）
+   │  转发到 127.0.0.1:8080
+   ▼
+node 游戏服务端  （监听 8080，由 pm2 守护）
+   ├─ 静态托管 index.html / css / js
+   ├─ HTTP API：/api/join
+   ├─ WebSocket：玩家移动 / 挖放方块 / 昼夜同步
+   └─ 世界存档目录 world/（自动落盘 + 重启恢复）
+```
+
+**三个必须同时打通的环节**，任一环节断了都会出问题：
+| 环节 | 作用 | 典型故障现象 |
+|------|------|--------------|
+| ① node 服务端在跑 | 真正提供游戏逻辑 | 网页都打不开 / 连接被拒绝 |
+| ② 端口 8080 放行 | 外部能连到 node | 超时 / 连接被拒绝 |
+| ③ Nginx 转发 WS | 域名下能联机 | 网页能开、**联机一直“正在连接…”** |
+
+> ⚠️ 本游戏**网页和联机都走 8080 这一个端口**，只是协议不同（HTTP vs WebSocket 升级）。
+> 所以“网页能开但联不上”几乎都是 **第③环节 Nginx 没放行 WebSocket**（详见第 8 节）。
+
+---
+
+## 2. 服务器环境准备
+
+### 2.1 系统要求
+- 操作系统：主流 Linux 发行版（CentOS 7+/Debian 9+/Ubuntu 18.04+ 均可）
+- 内存：建议 ≥ 1 GB（游戏本身很轻，主要看并发人数）
+- 本游戏**服务端代码只用 Node 10+ 的 API**，已验证兼容 **Node 16**，老内核服务器也能跑。
+
+### 2.2 ⚠️ 老内核 / glibc 硬限制（必看）
+Node 16 在 Linux 上要求 **glibc ≥ 2.17**。如果你的服务器是很老的发行版（如 CentOS 6，glibc 2.12），**Node 16 本身都起不来**。
+
+在服务器上先查一下：
+```bash
+node -v 2>/dev/null || echo "尚未安装 node"
+ldd --version | head -1        # 看 glibc 版本，例如 "ldd (GNU libc) 2.17"
+cat /etc/os-release | grep VERSION=
+```
+
+- 显示 glibc ≥ 2.17 → 可装 Node 16，继续。
+- 显示 glibc < 2.17（如 2.12）→ Node 16 跑不了，请装 **Node 14**（本游戏同样兼容，`ws` 也支持 Node 14）。
+  安装方式同第 3 节，只是选 14.x LTS。
+
+### 2.3 确认宝塔面板已安装并能进
+如果你还没装宝塔，在服务器上执行官方一键脚本（以 root 运行）：
+```bash
+# CentOS
+yum install -y wget && wget -O install.sh http://download.bt.cn/install/install_6.0.sh && sh install.sh
+# Ubuntu / Debian
+wget -O install.sh http://download.bt.cn/install/install-ubuntu_6.0.sh && sudo bash install.sh
+```
+装完会显示面板地址、用户名、密码。**务必记下来**。以后启动面板：
+```bash
+/etc/init.d/bt start     # 启动宝塔面板
+bt default               # 查看面板访问地址 / 账号 / 密码（忘记密码也用它重置）
+```
+
+---
+
+## 3. 安装 Node.js 16
+
+### 方式 A：宝塔面板里装（推荐，最省事）
+1. 登录宝塔面板 → 左侧 **软件商店**
+2. 搜索 **“Node.js 版本管理器”**（或 “PM2 / Node 版本管理器”）→ 安装
+3. 打开该软件 → 安装 **Node 16.x LTS**
+4. 把 Node 16 设为默认版本（界面上有“设为默认”按钮）
+5. 在面板里的 **终端**（或你自己 SSH）验证：
+   ```bash
+   node -v     # 期望 v16.x.x
+   npm -v
+   ```
+
+### 方式 B：命令行直接装（无宝塔或想要最新）
+```bash
+# 以 root 执行，使用 NodeSource 源安装 16.x
+curl -fsSL https://rpm.nodesource.com/setup_16.x | bash -   # CentOS/RHEL
+# 或 Debian/Ubuntu：
+# curl -fsSL https://deb.nodesource.com/setup_16.x | bash -
+yum install -y nodejs        # CentOS
+# apt-get install -y nodejs  # Debian/Ubuntu
+node -v
+```
+> 若服务器无法访问外网 npm 源，可在宝塔“Node 版本管理器”里离线安装，或用国内镜像：
+> `npm config set registry https://registry.npmmirror.com`
+
+---
+
+## 4. 安装 PM2 进程管理器
+
+PM2 用来“守护” node 进程：崩溃自动重启、开机自启、查看日志。
+
+```bash
+npm install -g pm2
+pm2 -v          # 显示版本即成功
+```
+> 宝塔用户也可在“软件商店”直接装 **PM2 管理器** 插件，效果一样。
+
+---
+
+## 5. 上传游戏项目到服务器
+
+### 5.1 目录结构（上传后必须保持这样）
+```
+/www/wwwroot/pixel-sandbox/        ← 你上传的根目录（路径可自定）
+├── index.html
+├── css/
+├── js/
+│   ├── data.js        （WORLD_W=600, WORLD_H=300，须与服务端一致）
+│   └── game.js
+├── server/
+│   ├── server.js      （游戏服务端，监听 8080）
+│   ├── package.json   （依赖 ws，engines: node>=16）
+│   └── node_modules/  （首次启动会自动 npm install 生成）
+├── start.sh           （一键启动脚本）
+└── deploy/            （本教程与 Nginx 配置文件所在）
+```
+
+### 5.2 上传方法（任选其一）
+- **宝塔面板**：左侧 **文件** → 进入 `/www/wwwroot/` → 上传整个 `pixel-sandbox` 文件夹（可先打包成 zip 上传再解压，更快）。
+- **FTP / SFTP**：用 FileZilla 等连服务器，拖到 `/www/wwwroot/`。
+- **命令行 scp**（在你本机执行）：
+  ```bash
+  scp -r /本地路径/pixel-sandbox root@服务器IP:/www/wwwroot/
+  ```
+
+> 📌 放置路径建议用 `/www/wwwroot/pixel-sandbox`，因为宝塔网站默认根目录就在这下面，第 8 节配 Nginx 时可直接复用。
+
+---
+
+## 6. 启动游戏服务端
+
+### 6.1 一键启动（推荐）
+进入服务器终端（宝塔“终端”或 SSH），执行：
+```bash
+cd /www/wwwroot/pixel-sandbox
+bash start.sh
+```
+脚本会自动：
+1. 进入 `server/` 目录
+2. 探测 node / pm2（缺哪个会报错提示）
+3. 首次 `npm install` 拉依赖 `ws`
+4. `pm2 start server.js --name pixel-sandbox --watch` 拉起服务
+5. `pm2 save` 保存进程列表
+
+看到类似输出即成功：
+```
+✅ 像素沙盒 · 服务器版已启动，端口 8080
+   世界种子: 7777（WORLD_W=600 WORLD_H=300，须与 js/data.js 一致）
+   存档目录: .../server/world（每 5000ms 按系统时间命名落盘一份世界数据）
+   静态托管: index.html / css / js
+```
+
+### 6.2 手动启动（等价做法，便于理解）
+```bash
+cd /www/wwwroot/pixel-sandbox/server
+npm install                 # 安装 ws 依赖（仅首次）
+pm2 start server.js --name pixel-sandbox --watch
+pm2 save
+```
+
+### 6.3 自定义端口（可选）
+默认是 **8080**。如果你的 8080 被占用，或想换端口：
+```bash
+PORT=8090 pm2 start server.js --name pixel-sandbox
+```
+> 换端口后，第 7、8 节里所有「8080」都要换成你实际端口，且浏览器访问地址也要带端口：`http://域名:8090`。
+
+---
+
+## 7. 放行端口（三层防火墙）
+
+即使 node 在跑，**外部仍可能连不上**，因为有三层“门”要开。任一层没开都会失败。
+
+### 第一层：云厂商安全组（最容易漏）
+这是云平台网页后台的规则，**不在服务器里设置**：
+- 阿里云/腾讯云/华为云/AWS → 控制台 → **安全组** → 入站规则
+- 新增：`协议=TCP`，`端口=8080`，`来源=0.0.0.0/0`（或你的 IP 段）
+- 如果你走 Nginx 域名（第 8 节），则放行 **80 和 443** 即可，8080 只需服务器内部通。
+
+### 第二层：系统防火墙（firewalld / ufw / iptables）
+```bash
+# 方式 1：firewalld（CentOS 7+ 常见）
+firewall-cmd --zone=public --add-port=8080/tcp --permanent
+firewall-cmd --reload
+firewall-cmd --list-ports          # 确认 8080/tcp 在列
+
+# 方式 2：ufw（Ubuntu 常见）
+ufw allow 8080/tcp
+ufw status
+
+# 方式 3：iptables（老内核常见）
+iptables -I INPUT -p tcp --dport 8080 -j ACCEPT
+service iptables save 2>/dev/null || iptables-save > /etc/sysconfig/iptables
+```
+
+### 第三层：宝塔面板“安全”（可选但建议）
+宝塔面板 → **安全** → 放行端口 → 填 `8080` / TCP → 确定。
+（如果你走 Nginx 域名访问，这层其实不用开 8080，开 80/443 即可。）
+
+### 快速自检（在服务器上）
+```bash
+pm2 status                          # 确认 pixel-sandbox 状态 online
+ss -tlnp | grep 8080               # 确认 node 在监听 0.0.0.0:8080
+curl -I http://127.0.0.1:8080      # 本机访问，应返回 HTTP 头/HTML
+curl -I http://服务器公网IP:8080   # 从外网角度自测（部分云禁回环，失败不代表真不通）
+```
+- `curl 127.0.0.1` 通 → 服务本身 OK，问题在防火墙/域名。
+- `curl 127.0.0.1` 拒绝 → 服务没真起来，看 `pm2 logs pixel-sandbox`。
+
+---
+
+## 8. 用域名访问 + Nginx 反向代理（关键：联机必看）
+
+### 8.1 为什么要这一步
+你希望别人输入 **域名** 就能进游戏，而不是 `http://IP:8080`。
+域名访问 = 浏览器连到 **80/443 端口** 的 Nginx，由 Nginx 把请求转发给内部 **8080 的 node**。
+- 普通网页（HTTP）→ Nginx 转发正常 ✅
+- 联机（WebSocket）→ **Nginx 默认不转发 `Upgrade` 升级头** → 握手失败 ❌
+
+这就是“网页能开、联机连不上”的根因。修法是给 Nginx 反代加上 WebSocket 支持。
+
+### 8.2 在宝塔里配置（推荐，图形化）
+1. 宝塔面板 → **网站** → **添加站点**（已加过就点进去）
+   - 域名填你的域名（如 `game.example.com`）
+   - 根目录可指向 `/www/wwwroot/pixel-sandbox`（或随便一个，反正后面反代会接管）
+2. 进入该站点 → **设置** → **反向代理** → **添加反向代理**
+   - 代理名称：`pixel-sandbox`
+   - 目标 URL：`http://127.0.0.1:8080`
+   - 发送域名：`$host`
+   - 点「提交」
+3. **关键**：点刚建好的代理右侧 **配置文件**（或“编辑”），把里面的
+   `location / { ... }` 整段替换为下面的【配置片段 A】。
+4. 保存，按提示 **重载 Nginx**。
+5. （可选）新版本宝塔反代界面有 **「启用 WebSocket 支持」勾选框**，直接勾上即等效，省去手改。
+
+> 📁 本教程配套的可直接粘贴配置文件在同目录 `nginx-pixel-sandbox.conf`。
+
+#### 【配置片段 A】宝塔反代 location 块（粘贴进“配置文件”）
+```nginx
+location / {
+    proxy_pass http://127.0.0.1:8080;
+    proxy_set_header Host $host;
+    proxy_set_header X-Real-IP $remote_addr;
+    proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+    proxy_set_header X-Forwarded-Proto $scheme;
+
+    # ===== 关键：支持 WebSocket 联机 =====
+    proxy_http_version 1.1;
+    proxy_set_header Upgrade $http_upgrade;
+    proxy_set_header Connection "upgrade";
+
+    # 联机是长连接，调大超时避免掉线
+    proxy_read_timeout 3600s;
+    proxy_send_timeout 3600s;
+    proxy_connect_timeout 60s;
+}
+```
+
+### 8.3 不用宝塔，直接改 Nginx（进阶）
+把【配置片段 B】的 `server` 块加进你的 nginx 站点配置（HTTP 或 HTTPS 版），
+`your.domain.com` 换成真实域名，HTTPS 版改证书路径，然后 `nginx -t && nginx -s reload`。
+完整内容见同目录 `nginx-pixel-sandbox.conf`。
+
+### 8.4 域名 DNS 解析
+在域名服务商后台，添加一条 **A 记录**：`game.example.com` → `服务器公网IP`。
+等几分钟生效（可用 `ping 你的域名` 确认解析到正确 IP）。
+
+---
+
+## 9. 验证联机是否成功
+
+### 9.1 网页能进
+浏览器打开 `http://你的域名`（或 `http://IP:8080` 直连）。
+应看到游戏画面、能创建/加入房间。
+
+### 9.2 联机成功标志
+- 进游戏后，屏幕提示 **“已连接”**（而不是一直“正在连接…”）。
+- 开 **两个** 浏览器窗口（或两台设备）进入同一世界：
+  - 一个窗口里角色移动，另一个窗口能看到该角色同步移动；
+  - 一个窗口挖/放方块，另一个窗口实时看到变化。
+- 浏览器按 **F12** → Network → 筛选 `WS`：
+  - 应能看到一条 WebSocket 连接，状态码 **101 Switching Protocols**。
+
+### 9.3 仍“正在连接…”怎么办
+→ 100% 是 8.2 第 3 步的 WebSocket 头没加对，或没重载 Nginx。
+重做第 8 节，并确认：
+```bash
+nginx -t            # 语法必须 OK
+# 宝塔里“软件商店 → Nginx → 重载配置”
+```
+直连自检：浏览器开 `http://IP:8080`——
+- 直连能联机、域名不能 → 确认是 Nginx 问题，回去改 8.2。
+- 直连也不能 → 问题在 node/防火墙，见第 13 节 FAQ。
+
+---
+
+## 10. 世界存档（自动落盘 / 重启恢复）
+
+本游戏服务端会**自动保存世界进度**，无需你手动操作。
+
+- **落盘目录**：`server/world/`
+- **文件名**：`world_YYYY-MM-DD_HH-MM-SS-mmm.json`（按系统时间命名，毫秒防重名）
+- **频率**：默认 **每 5 秒** 一份（常量 `SAVE_INTERVAL_MS = 5000`，想改更频/更慢直接改 server.js）
+- **自动清理**：只保留最近 **20 份**（`MAX_SAVE_FILES = 20`），超出自动删最旧的，磁盘不爆。
+- **重启恢复**：服务端启动时自动读取 `world/` 里**最新一份**存档，
+  恢复「玩家挖/放的方块差量 + 昼夜时钟」，建造进度不丢。
+- **存档内容**：`{ seed, time(昼夜0~1), day(第几天), savedAt, tiles(方块差量数组) }`
+
+> 玩家自身的位置/血量等属于“会话态”，每次进入按原逻辑重建，不受存档影响。
+> 想调存档频率或保留份数，编辑 `server/server.js` 顶部的 `SAVE_INTERVAL_MS` / `MAX_SAVE_FILES` 后
+> `pm2 reload pixel-sandbox` 即可生效。
+
+查看存档：
+```bash
+ls -la /www/wwwroot/pixel-sandbox/server/world
+```
+
+---
+
+## 11. 开机自动启动游戏
+
+服务器重启后，默认 node 不会自己起来。用 pm2 做开机自启：
+
+```bash
+pm2 startup        # 生成开机自启服务（需 root；会输出一条命令，照提示执行）
+pm2 save           # 把当前进程列表（含 pixel-sandbox）存下来
+```
+验证（可选，重启服务器后）：
+```bash
+pm2 status         # 应看到 pixel-sandbox 自动 online
+```
+
+> ⚠️ 仅执行一次 `pm2 startup` 即可。之后每次 `pm2 start/reload` 后 `pm2 save` 会更新保存的列表。
+
+---
+
+## 12. 日常运维命令速查
+
+```bash
+pm2 status                          # 查看所有进程状态
+pm2 logs pixel-sandbox              # 实时看游戏日志（联机排障第一手）
+pm2 logs pixel-sandbox --lines 100  # 看最近 100 行
+pm2 reload pixel-sandbox            # 改代码后热重载（不中断连接）
+pm2 restart pixel-sandbox           # 强制重启
+pm2 stop pixel-sandbox              # 停止
+pm2 delete pixel-sandbox            # 删除进程（再 start 会新建）
+
+cd /www/wwwroot/pixel-sandbox && bash start.sh   # 一键启动/重载
+
+/etc/init.d/bt start                # 启宝塔面板
+/etc/init.d/bt status               # 看宝塔状态
+```
+
+---
+
+## 13. 常见问题排障 FAQ
+
+### Q1. 浏览器报“连接被拒绝 (ERR_CONNECTION_REFUSED)”
+含义：目标地址:端口上**没有任何程序监听**（或防火墙主动 REJECT）。
+排查：
+```bash
+pm2 status                          # pixel-sandbox 是否在，状态是否 online
+ss -tlnp | grep 8080               # node 是否真的在 8080 监听
+curl -I http://127.0.0.1:8080      # 本机能否访问
+```
+- 状态 stopped/errored → `pm2 logs pixel-sandbox` 看报错（常见 `EADDRINUSE` 端口被占，换端口或停掉占用进程）。
+- 本机也拒绝 → 服务没起，重跑 `bash start.sh`。
+- 本机通、外网拒 → 第 7 节防火墙/云安全组没开 8080。
+
+### Q2. 网页能开，但一直“正在连接…”，多人联不了
+→ **Nginx 没放行 WebSocket**（第 8 节）。直连 `http://IP:8080` 验证：
+- 直连能联机 → 回去改 8.2 的 location 块，加 `Upgrade`/`Connection` 头并重载 Nginx。
+- 直连也连不上 → 见 Q3。
+
+### Q3. 连上后很快掉线 / 频繁重连
+→ 长连接被超时切断。在 Nginx 反代里把 `proxy_read_timeout` / `proxy_send_timeout` 调大（已设为 3600s）。
+另外确认服务端没崩：`pm2 logs pixel-sandbox` 看有无异常。
+
+### Q4. 玩家互相看不到、但都显示“已连接”
+→ 检查 `js/data.js` 的 `WORLD_W/WORLD_H` 是否与 `server.js` 一致（当前都是 600×300）。
+不一致会导致世界错位、同步异常。改完后 `pm2 reload pixel-sandbox`。
+
+### Q5. 重启服务器后游戏没了
+→ 没做开机自启。执行第 11 节的 `pm2 startup` + `pm2 save`。
+
+### Q6. 老内核装 Node 16 报 “GLIBC_2.17 not found”
+→ 内核太老，glibc 低于 2.17。改装 **Node 14**（本游戏同样兼容），或升级系统 glibc。
+
+### Q7. 想用 https（wss）安全访问
+→ 宝塔站点里申请 **免费 SSL 证书** 并强制 HTTPS。客户端会自动用 `wss://`（代码已处理）。
+Nginx 的 HTTPS server 块见 `nginx-pixel-sandbox.conf` 片段 B 注释部分。
+
+### Q8. 端口被占用 EADDRINUSE
+```bash
+# 查谁占了 8080
+ss -tlnp | grep 8080
+# 停掉它，或换端口启动：PORT=8090 pm2 start server.js --name pixel-sandbox
+```
+
+---
+
+## 14. 重要参数一览表
+
+| 项目 | 值 | 位置 / 说明 |
+|------|----|--------------|
+| 监听端口 | `8080` | `server.js` 常量 `PORT`（可用环境变量 `PORT` 覆盖） |
+| 世界种子 | `7777` | `server.js` 常量 `WORLD_SEED` |
+| 世界尺寸 | 宽 `600` × 高 `300` | `server.js` 的 `WORLD_W/WORLD_H`，须与 `js/data.js` 一致 |
+| 存档目录 | `server/world/` | `server.js` 的 `WORLD_DIR`，启动自动创建 |
+| 落盘间隔 | `5000` ms（5 秒） | `server.js` 的 `SAVE_INTERVAL_MS` |
+| 保留份数 | `20` 份 | `server.js` 的 `MAX_SAVE_FILES` |
+| Node 要求 | `>=16.0.0` | `package.json` 的 `engines`（老内核可降 14） |
+| 依赖 | `ws@^8.18.0` | 纯 JS，无原生编译，老内核可装 |
+| pm2 进程名 | `pixel-sandbox` | 启动脚本里 `--name pixel-sandbox` |
+| WebSocket 路径 | 同站点根 `/` | 客户端 `ws://域名`（自动跟随访问地址） |
+
+---
+
+## 附：本文件夹内配套文件
+- `nginx-pixel-sandbox.conf` —— 可直接粘贴的 Nginx 反代配置（片段 A/B + 验证清单）
+- `联机配置说明.txt` —— 宝塔改法 / 直连自检 / 防火墙排查 的精简版
+
+> 教程完。按顺序做：装 Node16 → 装 pm2 → 上传 → start.sh 启动 → 开 8080 端口 →
+> 配 Nginx 反代（带 WS 头）→ 域名解析 → 验证联机。卡在哪一步，看对应章节或 FAQ。

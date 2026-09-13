@@ -1,0 +1,109 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+  <title>像素沙盒 - 2D开放世界</title>
+  <link rel="stylesheet" href="css/style.css?v=7">
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>⛏️</text></svg>">
+</head>
+<body>
+
+<div id="game-container">
+  <canvas id="game-canvas"></canvas>
+
+  <!-- 背包弹窗 -->
+  <div id="inventory-overlay">
+    <div id="inventory-panel"></div>
+  </div>
+
+  <!-- 合成弹窗 -->
+  <div id="crafting-overlay">
+    <div id="crafting-panel"></div>
+  </div>
+
+  <!-- 箱子弹窗 -->
+  <div id="chest-overlay">
+    <div id="chest-panel"></div>
+  </div>
+
+  <!-- 卡牌对战弹窗 -->
+  <div id="battle-overlay">
+    <div id="battle-panel"></div>
+  </div>
+
+  <!-- 元素发现弹窗 -->
+  <div id="element-overlay">
+    <div id="element-panel"></div>
+  </div>
+
+  <!-- 手机触屏控件 -->
+  <div id="mobile-controls">
+    <!-- 左侧虚拟摇杆 -->
+    <div id="joystick-base">
+      <div id="joystick-knob"></div>
+    </div>
+    <!-- 右侧操作按钮（emoji + 文字标签，提升辨识度与防误触） -->
+    <div id="mobile-actions">
+      <button id="btn-mine" class="mobile-btn mine-btn"><span class="ico">⛏️</span><span class="lbl">挖</span></button>
+      <div id="mobile-action-row">
+        <button id="btn-place" class="mobile-btn place-btn"><span class="ico">🧱</span><span class="lbl">放</span></button>
+        <button id="btn-drop" class="mobile-btn drop-btn"><span class="ico">🫳</span><span class="lbl">丢</span></button>
+        <button id="btn-jump" class="mobile-btn jump-btn"><span class="ico">⬆️</span><span class="lbl">跳</span></button>
+      </div>
+    </div>
+    <!-- 顶部状态栏（整合：背包 / 合成；静音键由 JS 移入此栏） -->
+    <div id="mobile-topbar">
+      <button id="btn-inventory" class="mobile-top-btn">🎒</button>
+      <button id="btn-craft" class="mobile-top-btn">🔧</button>
+    </div>
+  </div>
+
+  <!-- Toast -->
+  <div id="game-toast"></div>
+
+  <!-- 静音按钮（桌面+手机通用） -->
+  <button id="btn-mute" class="hud-btn">🔊</button>
+
+  <!-- 服务器版：世界由服务端权威保存（每 60 秒落盘到 world/），客户端无存档按钮 -->
+
+  <!-- 在线玩家列表 -->
+  <div id="player-list">
+    <div id="player-list-header">在线玩家 <span id="player-count">0</span></div>
+    <div id="player-list-body"></div>
+  </div>
+
+  <!-- 用户名输入界面 -->
+  <div id="nickname-overlay">
+    <div id="nickname-panel">
+      <div class="nickname-icon">⛏️</div>
+      <div class="nickname-title">像素沙盒</div>
+      <div class="nickname-subtitle">输入用户名开始联机</div>
+      <input id="nickname-input" type="text" maxlength="16" placeholder="输入用户名..." autocomplete="off">
+      <button id="nickname-confirm">开始游戏</button>
+      <div id="lobby-players-wrap" class="lobby-wrap">
+        <div class="lobby-head">在线玩家 <span id="lobby-count">0</span></div>
+        <div id="lobby-players" class="lobby-list">
+          <div class="lobby-empty">连接中…</div>
+        </div>
+      </div>
+      <div class="nickname-hint">或通过链接进入：?nickname=你的名字</div>
+    </div>
+  </div>
+
+  <!-- 加载画面 -->
+  <div id="loading-screen">
+    <div class="loading-icon">⛏️</div>
+    <div class="loading-text">正在生成世界...</div>
+    <div class="loading-bar"><div class="loading-fill"></div></div>
+  </div>
+  <!-- 鼠标拿起物品时跟手显示的浮动图标（由 game.js 创建并控制） -->
+  <div id="drag-cursor"></div>
+</div>
+
+<script src="js/data.js?v=7"></script>
+<script src="js/world.js?v=7"></script>
+<script src="js/audio.js?v=7"></script>
+<script src="js/game.js?v=7"></script>
+</body>
+</html>

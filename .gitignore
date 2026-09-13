@@ -1,0 +1,10 @@
+# IDE / AI 工作数据（不提交）
+.codebuddy/
+.workbuddy/
+
+# 依赖（部署时 npm install，不入库）
+node_modules/
+
+# 系统文件
+.DS_Store
+Thumbs.db

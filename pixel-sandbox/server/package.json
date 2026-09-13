@@ -1,0 +1,15 @@
+{
+  "name": "pixel-sandbox-server",
+  "version": "1.0.0",
+  "description": "像素沙盒联机服务端",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js"
+  },
+  "engines": {
+    "node": ">=16.0.0"
+  },
+  "dependencies": {
+    "ws": "^8.18.0"
+  }
+}
