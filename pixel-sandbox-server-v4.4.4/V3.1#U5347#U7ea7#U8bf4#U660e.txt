@@ -1,0 +1,18 @@
+Pixel Sandbox V3.1
+
+基于当前运行版本继续升级。
+
+新增服务器数据结构:
+- kicklist.json
+- banlist.json
+- admin-log.json
+- config.json
+
+准备接入:
+- 在线玩家名字显示
+- Kick 5分钟限制
+- Ban直到管理员解除
+- 创造模式管理
+- 管理面板玩家控制
+
+部署前请备份原项目。

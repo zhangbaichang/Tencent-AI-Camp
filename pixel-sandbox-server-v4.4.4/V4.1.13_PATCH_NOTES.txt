@@ -1,0 +1,6 @@
+Pixel Sandbox V4.1.13
+
+Changes:
+- Added Pointer Events helper for hybrid PC/touch devices.
+- Improved admin panel client actions to use server API requests.
+- Prepared next stage: inventory drag migration, server authority, world sync.

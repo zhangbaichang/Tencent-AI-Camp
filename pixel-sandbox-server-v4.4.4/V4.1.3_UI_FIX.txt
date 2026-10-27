@@ -1,0 +1,7 @@
+Pixel Sandbox V4.1.3 UI 修复
+
+1. 修复 Windows 桌面电脑被误识别为手机端的问题：不再仅凭 maxTouchPoints/coarse pointer 判断手机；有精确鼠标/触控板指针的 Windows 桌面优先使用电脑 UI。
+2. 增加 CSS 桌面兜底：桌面 hover + fine pointer + 大屏环境强制隐藏手机摇杆/手机操作按钮。
+3. 修复吃食物后 HUD 与在线玩家列表重叠的问题：在线玩家列表从 HUD 下方开始显示。
+4. 在线玩家列表调整为约 5 名可见，超过 5 名自动滚动。
+5. 前端缓存版本从 v8 提升到 v9，避免浏览器继续使用旧 JS/CSS。

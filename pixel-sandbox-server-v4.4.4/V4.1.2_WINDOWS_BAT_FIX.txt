@@ -1,0 +1,10 @@
+Pixel Sandbox V4.1.2 Windows BAT 修复
+
+本版本基于 V4.1.1 实际项目修复 Windows 批处理脚本：
+- 所有项目路径统一使用带引号的绝对展开路径，避免路径被拆分。
+- npm/node 调用使用 call，避免批处理链式调用异常。
+- 启动脚本增加 Node/npm/目录检查。
+- 重启脚本不再使用模糊的 taskkill /IM node.exe，避免误杀其他 Node.js 程序。
+- 备份脚本改为安全的带引号路径。
+- SakuraFrp 检查脚本统一使用正确的工作目录。
+- 保留原项目功能和目录结构。

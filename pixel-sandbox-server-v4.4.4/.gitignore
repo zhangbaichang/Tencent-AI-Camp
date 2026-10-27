@@ -1,0 +1,18 @@
+# 依赖
+node_modules/
+
+# 日志
+logs/
+*.log
+
+# AI / IDE 工作数据
+.codebuddy/
+.workbuddy/
+
+# 运行时数据（含密码哈希 / 玩家数据 / 世界存档 / 管理员日志，禁止提交到仓库）
+data/
+server/data/
+server/users/
+server/world/
+server/players.json
+server/players_backup.json

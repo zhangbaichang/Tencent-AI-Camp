@@ -1,0 +1,7 @@
+Pixel Sandbox V4.2.8 Mobile Inventory Real Drag
+
+Added:
+- real item preview layer
+- icon/count rendering
+- pointer follow movement
+- pointer cancel cleanup

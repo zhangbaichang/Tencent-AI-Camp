@@ -1,0 +1,5 @@
+1.1.3 upgrade:
+- Enhanced player persistence data structure.
+- Player records now reserve inventory/hotbar fields.
+- Added automatic player data backup support.
+- Existing OP/login/player manager functions are preserved.

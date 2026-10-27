@@ -1,0 +1,11 @@
+Pixel Sandbox v3.8 Windows Server + SakuraFrp
+
+Local service:
+127.0.0.1:8080
+
+SakuraFrp tunnel:
+Type: TCP
+Local IP: 127.0.0.1
+Local Port: 8080
+
+Open Windows Firewall TCP 8080.

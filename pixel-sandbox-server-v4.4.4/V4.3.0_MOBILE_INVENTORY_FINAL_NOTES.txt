@@ -1,0 +1,8 @@
+Pixel Sandbox V4.3.0 Mobile Inventory Final
+
+Mobile inventory final integration base.
+- Pointer drag flow
+- Inventory slot drop layer
+- Mobile touch isolation
+- Drag preview architecture
+- UI conflict fixes

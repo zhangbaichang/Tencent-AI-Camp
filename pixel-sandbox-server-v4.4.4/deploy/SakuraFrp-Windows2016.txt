@@ -1,0 +1,11 @@
+Pixel Sandbox + SakuraFrp（Windows Server 2016）
+
+1. Node 游戏服务监听 0.0.0.0:8080。
+2. SakuraFrp 建议使用 TCP 隧道，将公网入口映射到 127.0.0.1:8080。
+3. SakuraFrp 启动器/服务默认日志目录：%PROGRAMDATA%\SakuraFrpService\Logs。项目会自动读取该目录中最近的日志，识别“隧道启动成功 使用 >>...<< 连接你的隧道”或英文等价日志。
+4. 游戏服务器启动后每 5 秒检查一次日志。检测到地址后会在 Node 控制台打印公网地址，并写入 server/data/public-address.json。
+5. 浏览器访问 /status 可以查看当前自动检测到的公网地址和 WebSocket 地址。
+6. 如果你的 SakuraFrp 使用了不同工作目录，请设置环境变量 SAKURA_LOG_DIR 指向实际 Logs 文件夹。
+7. 本功能不会把 SakuraFrp token 写入游戏项目，也不会调用 SakuraFrp Web UI。
+
+参考官方文档：SakuraFrp 启动器默认 Windows 工作目录及 Logs 位置，以及隧道启动成功时日志会显示连接方式。

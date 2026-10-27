@@ -1,0 +1,7 @@
+Pixel Sandbox V4.2.9 Mobile Inventory Slot Drop
+
+Changes planned/merged:
+- Connect drag preview with slot detection
+- Add target slot highlight layer
+- Prepare inventory to hotbar exchange handling
+- Improve pointer release cleanup

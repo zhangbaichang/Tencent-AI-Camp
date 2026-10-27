@@ -1,0 +1,15 @@
+Pixel Sandbox v3.8 Windows + SakuraFrp
+
+已加入：
+- SakuraFrp 日志自动发现公网地址
+- /status 状态页
+- /api/public-address JSON接口
+- Windows 一键安装/启动/重启/备份脚本
+- 背包热栏持久槽位修复：物品数量变化不会重排热栏
+
+启动：
+1) windows\01-install-check.bat
+2) windows\02-install-depend.bat
+3) SakuraFrp 映射 127.0.0.1:8080
+4) windows\03-start-server.bat
+5) 浏览器打开 /status 查看自动发现的公网地址

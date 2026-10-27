@@ -1,0 +1,4 @@
+V4.2.7 Mobile inventory drag rewrite
+- Added pointer based mobile inventory drag layer
+- Added delayed drag start to separate scrolling from dragging
+- Added pointer cancel cleanup

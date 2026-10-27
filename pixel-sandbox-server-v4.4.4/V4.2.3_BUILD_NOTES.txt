@@ -1,0 +1,4 @@
+Pixel Sandbox V4.2.3
+
+Integrated build from V4.2.2 baseline.
+Prepared for next UI/inventory iteration.

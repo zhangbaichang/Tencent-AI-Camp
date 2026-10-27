@@ -1,0 +1,359 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Pixel Sandbox 管理中心</title>
+<style>
+:root{
+  --bg:#0b1020; --bg2:#0e1526; --panel:#131b2e; --panel2:#0f1729; --line:#22304a;
+  --txt:#e8eefb; --muted:#8b9bb4; --green:#3ecf8e; --blue:#38bdf8; --amber:#f5a623; --red:#f05252;
+  --radius:16px;
+}
+*{box-sizing:border-box}
+html,body{height:100%}
+body{margin:0;font-family:system-ui,-apple-system,"Segoe UI",Arial,"Microsoft YaHei",sans-serif;background:
+  radial-gradient(1200px 600px at 10% -10%, #14233d 0%, transparent 60%),
+  radial-gradient(900px 500px at 100% 0%, #0f2a2a 0%, transparent 55%),
+  var(--bg);color:var(--txt);-webkit-font-smoothing:antialiased}
+::-webkit-scrollbar{width:10px;height:10px}
+::-webkit-scrollbar-thumb{background:#28374f;border-radius:10px}
+::-webkit-scrollbar-track{background:transparent}
+h1,h2,h3{font-weight:650;margin:0}
+a{color:inherit}
+
+/* ============ 登录 ============ */
+.login-wrap{min-height:100vh;display:flex;align-items:center;justify-content:center;padding:24px}
+.login-card{width:100%;max-width:360px;background:linear-gradient(180deg,rgba(24,34,56,.9),rgba(15,23,41,.95));border:1px solid var(--line);border-radius:20px;padding:34px 30px;text-align:center;box-shadow:0 24px 60px rgba(0,0,0,.45)}
+.login-card .logo{width:64px;height:64px;margin:0 auto 14px;border-radius:18px;display:grid;place-items:center;font-size:30px;background:linear-gradient(135deg,#1f8f6a,#2d6cdf);box-shadow:0 10px 24px rgba(45,108,223,.35)}
+.login-card h1{font-size:20px;letter-spacing:.5px}
+.login-card p{margin:6px 0 22px}
+.login-card input{width:100%;margin-bottom:12px}
+.login-card .btn{width:100%}
+
+/* ============ 布局 ============ */
+.app{display:flex;min-height:100vh}
+#sidebar{width:220px;flex:0 0 220px;background:linear-gradient(180deg,#101a2e,#0c1424);border-right:1px solid var(--line);display:flex;flex-direction:column;padding:16px 12px;position:sticky;top:0;height:100vh}
+.brand{display:flex;align-items:center;gap:10px;padding:6px 8px 18px}
+.brand-logo{width:38px;height:38px;border-radius:11px;display:grid;place-items:center;font-size:19px;background:linear-gradient(135deg,#1f8f6a,#2d6cdf)}
+.brand b{display:block;font-size:14px;letter-spacing:.4px}
+.brand small{color:var(--muted);font-size:11px}
+#sidebar nav{display:flex;flex-direction:column;gap:4px;flex:1;overflow-y:auto}
+.nav-item{display:flex;align-items:center;gap:10px;padding:10px 12px;border-radius:10px;color:var(--muted);font-size:13.5px;cursor:pointer;position:relative;transition:.18s;user-select:none}
+.nav-item i{font-style:normal;width:18px;text-align:center;font-size:15px;opacity:.95}
+.nav-item:hover{background:rgba(56,189,248,.08);color:var(--txt)}
+.nav-item.active{background:linear-gradient(90deg,rgba(62,207,142,.16),rgba(62,207,142,.04));color:#dff9ee}
+.nav-item.active::before{content:"";position:absolute;left:0;top:8px;bottom:8px;width:3px;border-radius:3px;background:var(--green)}
+.side-foot{padding-top:12px;border-top:1px solid var(--line)}
+
+.main{flex:1;min-width:0;display:flex;flex-direction:column}
+#topbar{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:16px 22px;border-bottom:1px solid var(--line);position:sticky;top:0;background:rgba(11,16,32,.82);backdrop-filter:blur(10px);z-index:5}
+.crumb{font-size:16px;font-weight:650;letter-spacing:.3px}
+.top-actions{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+.chip{font-size:12px;padding:6px 11px;border-radius:999px;background:var(--panel);border:1px solid var(--line);color:var(--muted)}
+.chip.live{color:#bff5df;border-color:rgba(62,207,142,.35);background:rgba(62,207,142,.1)}
+#content{padding:22px;max-width:1180px;width:100%}
+.page{display:none;animation:fade .22s ease}
+.page.active{display:block}
+@keyframes fade{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:none}}
+
+/* ============ 卡片/表单 ============ */
+.card{background:linear-gradient(180deg,var(--panel),var(--panel2));border:1px solid var(--line);border-radius:var(--radius);padding:18px;margin-bottom:16px}
+.card-head{display:flex;align-items:center;gap:10px;margin-bottom:12px;flex-wrap:wrap}
+.card-head h3{font-size:15px}
+.badge{font-size:12px;background:rgba(56,189,248,.14);color:#bfe9ff;border-radius:999px;padding:2px 9px}
+.muted{color:var(--muted);font-size:12.5px;line-height:1.7}
+.formrow{display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin-bottom:10px}
+.formrow>*{margin:0}
+input,select,textarea{background:var(--panel2);border:1px solid var(--line);color:var(--txt);padding:9px 12px;border-radius:10px;font-size:13px;font-family:inherit;outline:none;transition:.15s}
+input:focus,select:focus,textarea:focus{border-color:var(--blue);box-shadow:0 0 0 3px rgba(56,189,248,.13)}
+input::placeholder,textarea::placeholder{color:#64748b}
+textarea{resize:vertical;min-width:220px}
+select option{background:#0f1729}
+.btn{border:1px solid transparent;background:#22304a;color:var(--txt);padding:9px 14px;border-radius:10px;font-size:13px;cursor:pointer;transition:.16s;font-family:inherit}
+.btn:hover{transform:translateY(-1px)}
+.btn.primary{background:linear-gradient(135deg,#2f9d74,#2d6cdf);color:#fff;box-shadow:0 8px 18px rgba(45,108,223,.22)}
+.btn.ghost{background:transparent;border-color:var(--line);color:var(--muted)}
+.btn.ghost:hover{color:var(--txt);border-color:#33507a}
+.btn.danger{background:linear-gradient(135deg,#b43535,#7d1f1f);color:#fff}
+.btn.small{padding:6px 11px;font-size:12px}
+.btn.block{width:100%}
+
+/* ============ 仪表盘 ============ */
+.rings{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:14px;margin-bottom:16px}
+.ring-card{background:linear-gradient(180deg,var(--panel),var(--panel2));border:1px solid var(--line);border-radius:var(--radius);padding:20px;display:flex;justify-content:center}
+.ring{--p:0;--c:var(--green);width:118px;height:118px;border-radius:50%;position:relative;background:conic-gradient(var(--c) calc(var(--p) * 1%), #1b2740 0);transition:background .5s ease;display:flex;align-items:center;justify-content:center}
+.ring::after{content:"";position:absolute;inset:10px;border-radius:50%;background:var(--panel2)}
+.ring-inner{position:relative;z-index:1;text-align:center;line-height:1.2}
+.ring-inner b{font-size:21px;letter-spacing:.3px}
+.ring-inner span{display:block;font-size:11.5px;color:var(--muted);margin-top:1px}
+.ring-inner i{display:block;font-size:10px;color:#6b7d99;font-style:normal;margin-top:3px}
+.metric-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(158px,1fr));gap:12px;margin-bottom:16px}
+.metric{background:linear-gradient(180deg,var(--panel),var(--panel2));border:1px solid var(--line);border-radius:14px;padding:15px 16px;transition:.16s}
+.metric:hover{border-color:#33507a;transform:translateY(-1px)}
+.metric .m-ico{font-size:17px;opacity:.9}
+.metric .m-val{font-size:23px;font-weight:700;margin:5px 0 1px;letter-spacing:.3px}
+.metric .m-label{font-size:12px;color:var(--muted)}
+.info{background:linear-gradient(180deg,var(--panel),var(--panel2));border:1px solid var(--line);border-radius:14px;padding:16px 18px;display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:10px 20px}
+.info div{font-size:13px;color:var(--muted)}
+.info b{color:var(--txt);font-weight:600}
+
+/* ============ 表格 ============ */
+.table-wrap{overflow-x:auto;border-radius:12px}
+table{width:100%;border-collapse:collapse;font-size:13px}
+th{color:var(--muted);font-weight:600;text-align:left;padding:10px 12px;border-bottom:1px solid var(--line);white-space:nowrap}
+td{padding:10px 12px;border-bottom:1px solid rgba(34,48,74,.6);vertical-align:middle}
+tbody tr:hover,table tr:hover td{background:rgba(56,189,248,.045)}
+.rules-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:10px;margin-bottom:14px}
+.rule{display:flex;align-items:center;gap:9px;background:var(--panel2);border:1px solid var(--line);border-radius:11px;padding:11px 13px;font-size:13px;cursor:pointer}
+.rule input{width:16px;height:16px;accent-color:var(--green)}
+
+/* ============ 终端 ============ */
+.console-out{height:min(52vh,460px);overflow:auto;background:#070b14;border:1px solid var(--line);border-radius:12px;padding:12px 14px;font-family:ui-monospace,Consolas,"Courier New",monospace;font-size:12.5px;line-height:1.65;color:#c9d6ea}
+.console-out .line{white-space:pre-wrap;word-break:break-word}
+.console-out .line .t{color:#4f6b8f;margin-right:8px}
+.console-out .line.err{color:#ff8a8a}
+.console-out .line.warn{color:#ffcf6b}
+.console-out .line.cmd{color:#7fe0b0;font-weight:600}
+.console-input{flex:1;min-width:260px;font-family:ui-monospace,Consolas,"Courier New",monospace}
+/* 多标签终端 */
+.term-tabs-wrap{display:flex;align-items:flex-start;gap:6px;margin-bottom:8px}
+.term-tabs{display:flex;flex-wrap:wrap;gap:6px;flex:1;min-height:34px;align-items:center}
+.term-tab{display:flex;align-items:center;gap:6px;padding:6px 10px;border:1px solid var(--line);border-radius:8px;background:#0d1320;cursor:pointer;font-size:13px;color:#c9d6ea;user-select:none}
+.term-tab.active{border-color:#3ecf8e;background:#10241c;color:#eafff5}
+.term-tab.sys.active{border-color:#ffcf6b;background:#2a2113;color:#fff3d6}
+.term-tab-title{white-space:nowrap}
+.term-tab-close{border:none;background:transparent;color:#ff8a8a;cursor:pointer;font-size:12px;line-height:1;padding:0 2px}
+.term-tab-close:hover{color:#ff4d4d}
+.term-add{position:relative}
+.term-add-btn{width:34px;height:34px;border:1px dashed var(--line);border-radius:8px;background:#0d1320;color:#9fb3d0;font-size:18px;cursor:pointer;line-height:1}
+.term-add-btn:hover{border-color:#3ecf8e;color:#3ecf8e}
+.term-add-menu{position:absolute;right:0;top:40px;z-index:20;background:#0d1320;border:1px solid var(--line);border-radius:10px;padding:6px;display:flex;flex-direction:column;gap:4px;min-width:210px;box-shadow:0 8px 24px rgba(0,0,0,.4)}
+.term-add-menu[hidden]{display:none}
+.term-add-menu button{text-align:left;padding:8px 10px;border:1px solid var(--line);border-radius:8px;background:#11192a;color:#c9d6ea;cursor:pointer;font-size:13px}
+.term-add-menu button:hover{border-color:#3ecf8e;color:#eafff5}
+.term-bodies{display:flex;flex-direction:column}
+.term-body{display:none;position:relative}
+.term-body.active{display:block}
+.term-lock{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;background:rgba(7,11,20,.85);border-radius:12px;z-index:5}
+.term-lock-box{background:#0d1320;border:1px solid var(--line);border-radius:12px;padding:18px 20px;max-width:360px;width:92%}
+.term-lock-title{font-size:15px;font-weight:600;margin-bottom:6px}
+.term-lock-msg{margin-top:8px;font-size:12.5px;color:#ff8a8a;min-height:16px}
+
+@media(max-width:860px){
+  .app{flex-direction:column}
+  #sidebar{width:100%;flex:0 0 auto;height:auto;position:static;flex-direction:row;align-items:center;padding:8px;gap:8px;border-right:0;border-bottom:1px solid var(--line)}
+  .brand{display:none}
+  #sidebar nav{flex-direction:row;overflow-x:auto;gap:4px}
+  .nav-item{white-space:nowrap;padding:8px 11px}
+  .nav-item.active::before{display:none}
+  .side-foot{display:none}
+  #topbar{padding:12px 14px}
+  #content{padding:14px}
+}
+</style>
+</head>
+<body>
+
+<!-- 登录 -->
+<div id="login" class="login-wrap">
+  <div class="login-card">
+    <div class="logo">⛏</div>
+    <h1>Pixel Sandbox</h1>
+    <p class="muted">服务器管理中心 · v4.4.4v2</p>
+    <input id="au" placeholder="管理员账号" onkeydown="if(event.key==='Enter')login()">
+    <input id="pw" type="password" placeholder="密码" onkeydown="if(event.key==='Enter')login()">
+    <button class="btn primary" onclick="login()">登 录</button>
+  </div>
+</div>
+
+<!-- 主应用 -->
+<div id="panel" class="app" style="display:none">
+  <aside id="sidebar">
+    <div class="brand">
+      <span class="brand-logo">⛏</span>
+      <div><b>Pixel Sandbox</b><small>控制台 v4.4.4v2</small></div>
+    </div>
+    <nav>
+      <a class="nav-item active" data-target="status"><i>📊</i>状态总览</a>
+      <a class="nav-item" data-target="players"><i>🟢</i>在线玩家</a>
+      <a class="nav-item" data-target="accounts"><i>👤</i>账户管理</a>
+      <a class="nav-item" data-target="roles"><i>🛡</i>身份与模式</a>
+      <a class="nav-item" data-target="give"><i>🎁</i>发放物品</a>
+      <a class="nav-item" data-target="rules"><i>⚙</i>服务器规则</a>
+      <a class="nav-item" data-target="world"><i>🌍</i>世界与公告</a>
+      <a class="nav-item" data-target="console"><i>💻</i>终端</a>
+      <a class="nav-item" data-target="password"><i>🔑</i>管理密码</a>
+      <a class="nav-item" data-target="admin-accounts" id="navAdminAccounts" style="display:none"><i>👥</i>管理员账户</a>
+    </nav>
+    <div class="side-foot"><button class="btn ghost block" onclick="location.reload()">退出登录</button></div>
+  </aside>
+
+  <div class="main">
+    <header id="topbar">
+      <div class="crumb"><span id="pageTitle">状态总览</span></div>
+      <div class="top-actions">
+        <span class="chip" id="chipOnline">在线 0</span>
+        <span class="chip live" id="chipState">● 运行中</span>
+        <span class="chip" id="adminBadge"></span>
+        <button class="btn small ghost" onclick="load(true)">刷新</button>
+      </div>
+    </header>
+
+    <div id="content">
+      <section data-module="status" class="page active"><div id="status"></div></section>
+
+      <section data-module="players" class="page">
+        <div class="card">
+          <div class="card-head"><h3>在线玩家 <span id="count" class="badge">0</span></h3></div>
+          <div class="table-wrap"><table id="players"></table></div>
+        </div>
+      </section>
+
+      <section data-module="accounts" class="page">
+        <div class="card">
+          <div class="card-head"><h3>账户管理</h3><span class="muted">玩家名称全局唯一（支持中文 1-24 字）</span></div>
+          <div class="formrow">
+            <input id="newAccountId" placeholder="玩家名称">
+            <input id="newAccountPw" type="password" placeholder="密码（至少6位）">
+            <button class="btn primary" onclick="createAccount()">创建账户</button>
+          </div>
+          <div class="table-wrap"><table id="accounts"></table></div>
+        </div>
+        <div class="card">
+          <div class="card-head"><h3>封禁账户</h3><span class="muted">被封禁的账户（解禁后可立即重新进入）</span></div>
+          <div class="table-wrap"><table id="banlist"></table></div>
+        </div>
+      </section>
+
+      <section data-module="roles" class="page">
+        <div class="card">
+          <div class="card-head"><h3>身份与创造模式</h3></div>
+          <p class="muted">开发者默认创造/飞行/无限物品；管理员可授予创造模式；普通玩家仅生存模式。设置会持久保存，重启后继续生效。</p>
+          <div class="formrow">
+            <select id="roleTarget" style="min-width:220px"></select>
+            <select id="roleValue"><option value="player">普通玩家</option><option value="admin">管理员</option><option value="developer">开发者</option></select>
+            <button class="btn primary" onclick="applyRole()">设置身份</button>
+          </div>
+          <div class="formrow">
+            <select id="modeValue"><option value="survival">生存模式</option><option value="creative">创造模式</option></select>
+            <button class="btn primary" onclick="applyMode()">设置模式</button>
+          </div>
+          <div class="card-head" style="margin-top:16px"><h3>当前特权账号 <span id="privCount" class="badge">0</span></h3><span class="muted">admin / developer</span></div>
+          <div class="table-wrap"><table id="privileged"></table></div>
+        </div>
+      </section>
+
+      <section data-module="give" class="page">
+        <div class="card">
+          <div class="card-head"><h3>发放物品</h3><span class="muted">单个 / 批量 / 全服在线</span></div>
+          <p class="muted">可发给在线或离线账户，数量最多 9999。批量：输入多个玩家名称（逗号/空格/换行分隔），或点"全服在线"。物品ID 0-255，常用已列出，其余用自定义ID。</p>
+          <div class="formrow">
+            <select id="giveTarget" style="min-width:200px"></select>
+            <span class="muted">或批量</span>
+            <textarea id="giveBatch" rows="2" placeholder="昵称或UID，逗号/空格/换行分隔；留空则用上方单个目标"></textarea>
+            <button class="btn ghost" onclick="giveAllOnline()">全服在线</button>
+          </div>
+          <div class="formrow">
+            <select id="giveItem"></select>
+            <input id="giveItemId" type="number" min="0" max="255" placeholder="自定义物品ID" style="width:140px">
+            <input id="giveCount" type="number" min="1" max="9999" value="1" style="width:100px">
+            <button class="btn primary" onclick="grantItem()">发放物品</button>
+          </div>
+          <div id="giveResult" class="muted"></div>
+        </div>
+      </section>
+
+      <section data-module="rules" class="page">
+        <div class="card">
+          <div class="card-head"><h3>服务器规则</h3></div>
+          <div id="rules" class="rules-grid"></div>
+          <div class="formrow"><button class="btn primary" onclick="saveRules()">保存规则</button></div>
+        </div>
+      </section>
+
+      <section data-module="world" class="page">
+        <div class="card">
+          <div class="card-head"><h3>世界与公告</h3></div>
+          <div class="formrow">
+            <button class="btn primary" onclick="api('/api/save')">保存世界</button>
+            <button class="btn danger" onclick="resetWorld()">重置世界差量</button>
+            <button class="btn danger" onclick="hardResetWorld()">一键重置（新种子）</button>
+          </div>
+          <p class="muted">一键重置：生成新的世界种子、清空世界与全部玩家背包/进度，账户与昵称保留；在线玩家会被要求重新进入。</p>
+          <div class="formrow">
+            <input id="announceInput" placeholder="全服公告内容" style="flex:1;min-width:220px">
+            <button class="btn primary" onclick="announce()">发送公告</button>
+          </div>
+        </div>
+
+        <div class="card">
+          <div class="card-head"><h3>数据备份与恢复</h3><span class="muted">备份保存到 world/save，可下载或上传恢复</span></div>
+          <div class="formrow">
+            <button class="btn primary" onclick="Backup.create()">立即备份</button>
+            <button class="btn ghost" onclick="Backup.list()">刷新列表</button>
+          </div>
+          <div class="table-wrap"><table id="backups"></table></div>
+          <div class="formrow" style="margin-top:12px">
+            <input type="file" id="backupFile" accept=".zip">
+            <button class="btn danger" onclick="Backup.upload()">上传并恢复</button>
+          </div>
+          <p class="muted">上传 zip 会覆盖世界 / 账户 / 数据目录并立即重载；请确认备份内容无误后再操作。</p>
+        </div>
+      </section>
+
+      <section data-module="password" class="page">
+        <div class="card">
+          <div class="card-head"><h3>管理面板密码</h3></div>
+          <p class="muted">修改当前登录账户的密码，修改后需要重新登录。</p>
+          <div class="formrow">
+            <input id="opOldPw" type="password" placeholder="原密码">
+            <input id="opNewPw" type="password" placeholder="新密码（至少6位）">
+            <input id="opNewPw2" type="password" placeholder="确认新密码">
+            <button class="btn primary" onclick="changeOpPassword()">修改密码</button>
+          </div>
+        </div>
+      </section>
+
+      <section data-module="admin-accounts" class="page">
+        <div class="card">
+          <div class="card-head"><h3>管理员账户</h3><span class="muted">仅超级管理员可见 · 管理登录账号与权限</span></div>
+          <div class="formrow">
+            <input id="newAdminUser" placeholder="新账号（2-24位字母/数字/下划线）">
+            <input id="newAdminPw" type="password" placeholder="密码（6-128位）">
+            <select id="newAdminRole">
+              <option value="admin">管理员(admin)</option>
+              <option value="super">最高权限(super)</option>
+            </select>
+            <button class="btn primary" onclick="Admin.AdminAccounts.create()">创建账户</button>
+          </div>
+          <div class="table-wrap"><table id="adminAccountsList"></table></div>
+        </div>
+      </section>
+
+      <section data-module="console" class="page">
+        <div class="card">
+          <div class="card-head"><h3>服务器终端</h3><span class="muted">实时显示服务器终端输出 · 输入指令回车执行</span></div>
+          <div class="term-tabs-wrap">
+            <div class="term-tabs" id="termTabs"></div>
+            <div class="term-add">
+              <button class="term-add-btn" id="termAddBtn" title="新建终端">＋</button>
+              <div class="term-add-menu" id="termAddMenu" hidden>
+                <button data-type="game">＋ 游戏命令终端</button>
+                <button data-type="system">＋ 系统终端（需密码 admin）</button>
+              </div>
+            </div>
+          </div>
+          <div class="term-bodies" id="termBodies"></div>
+          <p class="muted" style="margin-top:8px">服务器控制台（运行 server.js 的窗口）同样可直接输入这些指令。游戏内输入 /指令 需要最低管理员权限。系统终端需先输入密码 <code>admin</code> 解锁。</p>
+        </div>
+      </section>
+    </div>
+  </div>
+</div>
+
+<script src="/js/player-view.js?v=4.4.4v2"></script>
+<script src="/js/data.js?v=4.4.4v2"></script>
+<script src="/admin/admin.js?v=4.4.4v2.5"></script>
+</body>
+</html>

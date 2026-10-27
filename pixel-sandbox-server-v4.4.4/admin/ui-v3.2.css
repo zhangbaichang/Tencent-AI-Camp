@@ -1,0 +1,11 @@
+/* V3.2 Admin UI theme */
+.player-card{
+ padding:16px;
+ border-radius:14px;
+ background:#151d33;
+ margin:8px;
+}
+.scroll-list{
+ max-height:260px;
+ overflow-y:auto;
+}

@@ -1,0 +1,16 @@
+Pixel Sandbox Windows Server 2016 最终部署
+
+1. 解压项目。
+2. 确认 node -v 可用。Node 24.21.0 可先直接测试；如果 npm 依赖出现兼容错误，再考虑切换到 Node 20 LTS。
+3. 运行 windows\01-install-check.bat。
+4. 运行 windows\02-install-depend.bat。
+5. 启动 SakuraFrp 隧道：公网 -> 127.0.0.1:8080。
+6. 运行 windows\03-start-server.bat。
+7. 本机测试 http://127.0.0.1:8080。
+8. 查看 http://127.0.0.1:8080/status，等待自动显示 SakuraFrp 公网地址。
+9. 外网玩家使用状态页显示的 HTTP 地址进入；浏览器 WebSocket 会自动根据页面协议和 host 连接。
+
+管理后台：/op/
+状态页面：/status
+
+注意：不要把 SakuraFrp 启动器 Web UI 本身通过公网暴露。

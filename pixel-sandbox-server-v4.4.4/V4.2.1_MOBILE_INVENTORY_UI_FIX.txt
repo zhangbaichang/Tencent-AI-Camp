@@ -1,0 +1,4 @@
+V4.2.1 Mobile UI Fix
+- Fixed mobile inventory overscroll bounce
+- Separated chat/settings button positions
+- Improved drag cursor animation layer

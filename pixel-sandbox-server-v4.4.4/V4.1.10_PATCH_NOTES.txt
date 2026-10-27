@@ -1,0 +1,6 @@
+Pixel Sandbox V4.1.10 Patch
+
+Applied fixes:
+- Server bind changed to 0.0.0.0 for Windows Server/SakuraFrp deployment.
+- Preserved existing multiplayer architecture.
+- Next patch targets: pointer-event inventory drag, admin panel API completion, server-authoritative entities.

@@ -1,0 +1,32 @@
+Pixel Sandbox 1.1.4 宝塔部署
+
+1. 项目目录:
+ /www/wwwroot/pixel-sandbox
+
+2. Node:
+ cd server
+ npm install
+ pm2 start server.js --name pixel-sandbox
+ pm2 save
+
+3. server.js端口:
+ 8080
+
+4. Nginx反向代理:
+location / {
+    proxy_pass http://127.0.0.1:8080;
+    proxy_http_version 1.1;
+    proxy_set_header Upgrade $http_upgrade;
+    proxy_set_header Connection "upgrade";
+    proxy_set_header Host $host;
+    proxy_read_timeout 3600s;
+}
+
+5. 域名:
+ https://y1-xiaoxiao.top
+
+管理:
+ https://y1-xiaoxiao.top/op
+
+公网IP:
+120.79.212.240

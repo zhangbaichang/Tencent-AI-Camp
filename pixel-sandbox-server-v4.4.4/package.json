@@ -1,0 +1,16 @@
+{
+  "name": "pixel-sandbox",
+  "version": "4.4.4v2",
+  "private": true,
+  "description": "Pixel Sandbox HTML mobile inventory release",
+  "scripts": {
+    "start": "node server/server.js",
+    "test": "node --test tests/*.test.cjs"
+  },
+  "engines": {
+    "node": ">=24"
+  },
+  "dependencies": {
+    "ws": "^8.18.0"
+  }
+}

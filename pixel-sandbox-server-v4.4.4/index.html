@@ -1,0 +1,132 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+  <title>像素沙盒 - 2D开放世界</title>
+  <link rel="stylesheet" href="css/style.css?release=4.4.4v2&v=10">
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>⛏️</text></svg>">
+</head>
+<body>
+
+<div id="game-container">
+  <canvas id="game-canvas"></canvas>
+
+  <!-- 背包弹窗 -->
+  <div id="inventory-overlay">
+    <div id="inventory-panel"></div>
+  </div>
+
+  <!-- 合成弹窗 -->
+  <div id="crafting-overlay">
+    <div id="crafting-panel"></div>
+  </div>
+
+  <!-- 箱子弹窗 -->
+  <div id="chest-overlay">
+    <div id="chest-panel"></div>
+  </div>
+
+  <!-- 卡牌对战弹窗 -->
+  <div id="battle-overlay">
+    <div id="battle-panel"></div>
+  </div>
+
+  <!-- 元素发现弹窗 -->
+  <div id="element-overlay">
+    <div id="element-panel"></div>
+  </div>
+
+  <!-- 手机触屏控件 -->
+  <div id="mobile-controls">
+    <!-- 左侧虚拟摇杆 -->
+    <div id="joystick-base">
+      <div id="joystick-knob"></div>
+    </div>
+    <!-- 右侧操作按钮（emoji + 文字标签，提升辨识度与防误触） -->
+    <div id="mobile-actions">
+      <button id="btn-mine" class="mobile-btn mine-btn"><span class="ico">⛏️</span><span class="lbl">挖</span></button>
+      <div id="mobile-action-row">
+        <button id="btn-place" class="mobile-btn place-btn"><span class="ico">🧱</span><span class="lbl">放</span></button>
+        <button id="btn-drop" class="mobile-btn drop-btn"><span class="ico">🫳</span><span class="lbl">丢</span></button>
+        <button id="btn-jump" class="mobile-btn jump-btn"><span class="ico">⬆️</span><span class="lbl">跳</span></button>
+      </div>
+    </div>
+    <!-- 顶部状态栏（整合：背包 / 合成；静音键由 JS 移入此栏） -->
+    <div id="mobile-topbar">
+      <button id="btn-inventory" class="mobile-top-btn">🎒</button>
+      <button id="btn-craft" class="mobile-top-btn">🔧</button>
+      <button id="btn-chat" class="mobile-top-btn" title="聊天">💬</button>
+    </div>
+  </div>
+
+  <!-- Toast -->
+  <div id="game-toast"></div>
+
+  <!-- 静音按钮（桌面+手机通用） -->
+  <button id="btn-mute" class="hud-btn">🔊</button>
+  <button id="btn-settings" class="hud-btn settings-btn">⚙️</button>
+
+  <!-- 服务器版：世界由服务端权威保存（每 60 秒落盘到 world/），客户端无存档按钮 -->
+
+  <!-- 在线玩家列表（点击标题可折叠/展开，展开时最多显示 3 个玩家名字） -->
+  <div id="player-list">
+    <div id="player-list-header">在线玩家 <span id="player-count">0</span></div>
+    <div id="player-list-body"></div>
+  </div>
+
+  <!-- 游戏账户登录/注册：仅需玩家名称 + 密码 -->
+  <div id="nickname-overlay">
+    <div id="nickname-panel">
+      <div class="nickname-icon">⛏️</div>
+      <div class="nickname-title">像素沙盒</div>
+      <div class="nickname-subtitle">昵称 + 密码即可开始（支持中文）</div>
+      <div id="account-mode-tabs" style="display:flex;gap:8px;margin-bottom:12px">
+        <button id="account-login-tab" class="account-tab active">登录</button>
+        <button id="account-register-tab" class="account-tab">注册</button>
+        <button id="account-single-tab" class="account-tab">单人模式</button>
+      </div>
+      <input id="account-name-input" type="text" maxlength="24" placeholder="昵称（支持中文，1-24字，单人可选）" autocomplete="username">
+      <input id="account-password-input" type="password" maxlength="128" placeholder="密码（至少6位）" autocomplete="current-password">
+      <label id="sp-creative-wrap" style="display:none;color:#9fb3c8;font-size:13px;margin:2px 0 6px;user-select:none"><input type="checkbox" id="sp-creative"> 创造模式（无限物品，自由建造）</label>
+      <button id="nickname-confirm">登录并开始游戏</button>
+      <div id="account-message" class="nickname-hint"></div>
+      <div id="lobby-players-wrap" class="lobby-wrap">
+        <div class="lobby-head">在线玩家 <span id="lobby-count">0</span></div>
+        <div id="lobby-players" class="lobby-list"><div class="lobby-empty">连接中…</div></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- 游戏设置 -->
+  <div id="settings-overlay" class="modal-overlay hidden">
+    <div id="settings-panel" class="modal-panel">
+      <div class="modal-title">⚙️ 游戏设置</div>
+      <div style="display:flex;justify-content:space-between;align-items:center;margin:10px 0 14px;color:#9fb3c8"><span>玩家 UID</span><b id="setting-uid" style="color:#00d4ff">—</b></div>
+      <label>总音量 <input id="setting-master" type="range" min="0" max="1" step="0.05"></label>
+      <label>音效 <input id="setting-sfx" type="range" min="0" max="1" step="0.05"></label>
+      <label>音乐 <input id="setting-music" type="range" min="0" max="1" step="0.05"></label>
+      <label class="setting-check"><input id="setting-mobile-performance" type="checkbox"> 移动设备性能模式</label>
+      <label class="setting-check"><input id="setting-low-particles" type="checkbox"> 降低粒子效果</label>
+      <label class="setting-check"><input id="setting-reduced-motion" type="checkbox"> 减少动画</label>
+      <button id="settings-close" class="account-tab active">保存并关闭</button>
+    </div>
+  </div>
+
+  <!-- 加载画面 -->
+  <div id="loading-screen">
+    <div class="loading-icon">⛏️</div>
+    <div class="loading-text">正在生成世界...</div>
+    <div class="loading-bar"><div class="loading-fill"></div></div>
+  </div>
+  <!-- 鼠标拿起物品时跟手显示的浮动图标（由 game.js 创建并控制） -->
+  <div id="drag-cursor"></div>
+</div>
+
+<script src="js/data.js?v=4.4.4v2.2"></script>
+<script src="js/world.js?v=4.4.4v2"></script>
+<script src="js/audio.js?v=4.4.4v2"></script>
+<script src="js/player-view.js?v=4.4.4v2"></script>
+<script src="js/game.js?v=4.4.4v2.5"></script>
+</body>
+</html>
