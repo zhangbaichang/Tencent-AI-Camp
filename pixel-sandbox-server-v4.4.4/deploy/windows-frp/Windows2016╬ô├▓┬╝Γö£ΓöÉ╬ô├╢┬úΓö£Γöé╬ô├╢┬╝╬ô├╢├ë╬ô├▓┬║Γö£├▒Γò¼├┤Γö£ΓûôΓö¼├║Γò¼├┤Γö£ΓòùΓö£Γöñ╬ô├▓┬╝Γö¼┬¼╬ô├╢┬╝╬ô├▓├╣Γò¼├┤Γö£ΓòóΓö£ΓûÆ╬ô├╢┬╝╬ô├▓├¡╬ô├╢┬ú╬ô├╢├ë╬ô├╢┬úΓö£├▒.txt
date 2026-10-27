@@ -1,5 +1,5 @@
 1. Install Node.js.
-2. Run windows/02-install-depend.bat.
-3. Run windows/03-start-server.bat.
+2. Run start.bat install.
+3. Run start.bat start.
 4. Configure SakuraFrp to forward TCP 8080.
 5. Players open the public Frp address.

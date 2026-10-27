@@ -38,6 +38,44 @@ const path = require('path');
 const os = require('os');
 const WebSocket = require('ws');
 const { startSakuraFrpWatcher, getPublicAddressInfo } = require('./sakura-frp');
+const { spawn } = require('child_process');
+
+// ==================== 系统终端：OS Shell 持久会话（V4.4.4v2） ====================
+// 管理面板“系统终端”用于执行真实的系统命令（Windows cmd / Linux bash，如 dir / ipconfig / python）。
+// 每个终端标签对应一个持久 shell 进程，支持交互式程序（python REPL 等）。
+// 安全：仅当携带有效 OP 登录令牌（/api/op/shell 走 requireOp）且前端已解锁时才可访问。
+const SHELL_SESSIONS = new Map(); // id -> { proc, out:[{id,text}], seq, closed }
+let __shellSeq = 0;
+const SHELL_MAX_BUF = 2000;
+function spawnShell() {
+  const isWin = process.platform === 'win32';
+  const bin = isWin ? (process.env.ComSpec || 'cmd.exe') : (process.env.SHELL || '/bin/bash');
+  const args = isWin ? [] : ['-i'];
+  const proc = spawn(bin, args, {
+    cwd: path.join(__dirname, '..'),
+    env: Object.assign({}, process.env, { PYTHONUNBUFFERED: '1', PYTHONIOENCODING: 'utf-8' }),
+    windowsHide: true,
+  });
+  // Windows 下把 shell 代码页切到 UTF-8，避免中文命令输出乱码
+  if (isWin) { try { proc.stdin.write('chcp 65001>nul\r\n'); } catch (e) {} }
+  const id = 'sh' + (++__shellSeq);
+  const sess = { id, proc, out: [], seq: 0, closed: false };
+  const push = (t) => {
+    if (!t) return;
+    sess.out.push({ id: ++sess.seq, text: String(t) });
+    if (sess.out.length > SHELL_MAX_BUF) sess.out.splice(0, sess.out.length - SHELL_MAX_BUF);
+  };
+  try { proc.stdout.setEncoding('utf8'); proc.stderr.setEncoding('utf8'); } catch (e) {}
+  proc.stdout.on('data', push);
+  proc.stderr.on('data', push);
+  proc.on('exit', (code) => { sess.closed = true; push('\n[进程已退出，code=' + code + ']'); });
+  proc.on('error', (e) => { sess.closed = true; push('\n[启动失败] ' + e.message); });
+  SHELL_SESSIONS.set(id, sess);
+  return sess;
+}
+process.on('exit', () => {
+  for (const s of SHELL_SESSIONS.values()) { try { s.proc.kill(); } catch (e) {} }
+});
 
 // CPU 使用率采样（管理面板状态圆环用：按两次调用间隔计算平均占用）
 let __cpuTimesPrev = null;
@@ -831,7 +869,7 @@ const server = http.createServer((req, res) => {
 });
 
 function jsonRes(res, code, obj) {
-  res.writeHead(code, {'Content-Type':'application/json'});
+  res.writeHead(code, {'Content-Type':'application/json; charset=utf-8'});
   res.end(JSON.stringify(obj));
 }
 
@@ -1218,6 +1256,40 @@ function handleHttpApi(url, data, res, opAuthed, opToken) {
         const lines = __consoleBuffer.filter(l => l.id > since);
         jsonRes(res, 200, { ok:true, lines, cursor: __consoleSeq });
       }
+      break;
+    }
+    case '/api/op/shell': {
+      // 系统终端：open / write / read / close（持久 shell 进程，支持 python 等交互程序）
+      if (!requireOp(res, opAuthed)) break;
+      const sAction = String(data.action || '');
+      if (sAction === 'open') {
+        const sess = spawnShell();
+        const who = (opSession(opToken) || {}).user || 'op';
+        logAdmin('shell_open', who, '', '');
+        jsonRes(res, 200, { ok:true, id: sess.id, cwd: path.join(__dirname, '..'), build: '4.4.4v2.7' });
+        break;
+      }
+      const sess = SHELL_SESSIONS.get(String(data.id || ''));
+      if (!sess) { jsonRes(res, 404, { ok:false, error:'no_session', message:'系统终端会话不存在或已关闭' }); break; }
+      if (sAction === 'write') {
+        const line = String(data.line || '');
+        if (!sess.closed && sess.proc.stdin && sess.proc.stdin.writable) sess.proc.stdin.write(line + '\r\n');
+        jsonRes(res, 200, { ok:true });
+        break;
+      }
+      if (sAction === 'read') {
+        const since = Number(data.since || 0) || 0;
+        const lines = sess.out.filter(l => l.id > since);
+        jsonRes(res, 200, { ok:true, lines, cursor: sess.seq, closed: sess.closed });
+        break;
+      }
+      if (sAction === 'close') {
+        try { sess.proc.kill(); } catch (e) {}
+        SHELL_SESSIONS.delete(sess.id);
+        jsonRes(res, 200, { ok:true });
+        break;
+      }
+      jsonRes(res, 400, { ok:false, error:'bad_action' });
       break;
     }
     case '/api/op/announce': {
@@ -1831,6 +1903,7 @@ try {
       }
     });
     console.log('[console] 服务器终端已就绪（输入 help 查看指令）');
+    console.log('[console] 系统终端（OS Shell）已启用 · 构建 4.4.4v2.7（cmd/bash，可执行 dir / python 等）');
   }
 } catch (e) {}
 

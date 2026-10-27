@@ -6,7 +6,7 @@
 
 安装 Node.js 24 或以上，在项目根目录执行 `node server/server.js`，访问 `http://localhost:8080`。
 发行包包含纯 JavaScript 的 ws 依赖；如需重装，在 server 目录执行 `npm install`。
-Windows 也可双击 `deploy/windows/start-server.bat`。Linux 使用 `bash deploy/linux/start-linux.sh`。
+Windows 双击根目录 `start.bat`（菜单含 安装/启动/停止/重启/状态/备份/查Frp；直接运行 `start.bat start` 可一键前台启动）。Linux 运行 `bash start.sh`（默认一键启动，支持 `install/stop/restart/status/frp` 子命令）。
 生产部署通过 OP_PASSWORD 环境变量设置管理密码。PORT 默认 8080。管理入口 `/op`。
 
 ## 操作

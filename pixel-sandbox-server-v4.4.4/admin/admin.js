@@ -17,8 +17,12 @@
   async function post(u, b = {}) {
     const r = await fetch(u, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(b) });
     let d = {};
-    try { d = await r.json(); } catch (e) {}
-    if (!r.ok || d.ok === false) throw new Error(d.message || d.error || '操作失败');
+    let raw = '';
+    try { raw = await r.text(); d = raw ? JSON.parse(raw) : {}; } catch (e) { d = {}; }
+    if (!r.ok || d.ok === false) {
+      const msg = d.message || d.error || (raw && raw.length < 160 ? raw.trim() : '') || ('HTTP ' + r.status);
+      throw new Error(msg);
+    }
     return d;
   }
   async function shutdownServer() {
@@ -43,7 +47,7 @@
 
   // ---------- 模块：服务器终端 ----------
   // 多标签终端：默认“游戏命令终端”，可用“+ ”新建，并选择“游戏命令终端 / 系统终端”。
-  // 系统终端需先输入密码 admin 解锁（UI 级二次确认；真正的服务端鉴权仍是 OP 登录令牌 /api/op/console）。
+  // 系统终端需先输入密码 admin 解锁；解锁后通过 /api/op/shell 执行真实系统命令（Windows cmd / Linux bash）。
   const Term = {
     seq: 0,
     sessions: [],
@@ -78,6 +82,7 @@
       if (i < 0) return;
       if (this.sessions.length <= 1) { this.append(id, { at: Date.now(), text: '至少需保留一个终端', level: 'WARN' }); return; }
       const s = this.sessions[i];
+      if (s.type === 'system' && s.shellId) { try { post('/api/op/shell', { action: 'close', id: s.shellId }); } catch (e) {} }
       if (s.elTab) s.elTab.remove();
       if (s.elBody) s.elBody.remove();
       this.sessions.splice(i, 1);
@@ -111,7 +116,7 @@
             </div>
           </div>` : ''}
         <div class="formrow" style="margin-top:10px">
-          <input class="console-input" id="consoleInput_${sess.id}" placeholder="${isSys ? '解锁后可输入指令…' : '输入指令后回车，如 help / online / give 昵称 1 5 / say 文字'}" ${isSys ? 'disabled' : ''}>
+          <input class="console-input" id="consoleInput_${sess.id}" placeholder="${isSys ? '输入系统命令后回车，如 dir / ipconfig / python -V' : '输入指令后回车，如 help / online / give 昵称 1 5 / say 文字'}" ${isSys ? 'disabled' : ''}>
           <button class="btn primary" id="termExecBtn_${sess.id}" ${isSys ? 'disabled' : ''}>执行</button>
           <button class="btn ghost" id="termClearBtn_${sess.id}">清屏</button>
         </div>`;
@@ -147,6 +152,24 @@
       const eb = s.elBody && s.elBody.querySelector('#termExecBtn_' + id);
       if (eb) eb.disabled = false;
       this.append(id, { at: Date.now(), text: '系统终端已解锁', level: 'CMD' });
+      await this._openShell(s);
+    },
+    async _openShell(s) {
+      if (s.shellId) return;
+      try {
+        const d = await post('/api/op/shell', { action: 'open' });
+        if (d.ok && d.id) {
+          s.shellId = d.id;
+          s.cursor = 0;
+          this.append(s.id, { at: Date.now(), text: '系统终端已连接（' + (d.cwd || '') + '，构建 ' + (d.build || '未知') + '）', level: 'CMD' });
+          if (!d.build) this.append(s.id, { at: Date.now(), text: '提示：服务端可能是旧版本（缺少构建标记），请更新并重启服务端。', level: 'WARN' });
+        } else {
+          this.append(s.id, { at: Date.now(), text: '系统终端连接失败：' + (d.message || d.error || '未知错误'), level: 'ERROR' });
+        }
+      } catch (e) {
+        this.append(s.id, { at: Date.now(), text: '系统终端连接失败：' + e.message, level: 'ERROR' });
+        this.append(s.id, { at: Date.now(), text: '若提示 Not Found / HTTP 404 / 操作失败：说明服务端未更新或未重启，请替换 server/server.js 后重启服务。', level: 'WARN' });
+      }
     },
     async exec(id) {
       const s = this.sessions.find(x => x.id === id); if (!s || !s.inputEl) return;
@@ -158,9 +181,24 @@
       s.inputEl.value = '';
       this.append(id, { at: Date.now(), text: '> ' + line, level: 'CMD' });
       try {
-        const d = await post('/api/op/console', { line });
-        if (d.ok && d.output) this.append(id, { at: Date.now(), text: d.output });
-        await this._pollOne(id);
+        if (s.type === 'system') {
+          if (!s.shellId) await this._openShell(s);
+          if (!s.shellId) return;
+          try {
+            await post('/api/op/shell', { action: 'write', id: s.shellId, line });
+          } catch (e) {
+            // 服务端可能已重启导致旧会话失效：重开一次再试
+            s.shellId = null;
+            await this._openShell(s);
+            if (!s.shellId) throw e;
+            await post('/api/op/shell', { action: 'write', id: s.shellId, line });
+          }
+          await this._pollOne(id);
+        } else {
+          const d = await post('/api/op/console', { line });
+          if (d.ok && d.output) this.append(id, { at: Date.now(), text: d.output });
+          await this._pollOne(id);
+        }
       } catch (e) { this.append(id, { at: Date.now(), text: '错误：' + e.message, level: 'ERROR' }); }
     },
     clear(id) { const s = this.sessions.find(x => x.id === id); if (s && s.outEl) s.outEl.textContent = ''; },
@@ -174,6 +212,16 @@
     async _pollOne(id) {
       const s = this.sessions.find(x => x.id === id); if (!s || !s.outEl) return;
       try {
+        if (s.type === 'system') {
+          if (!s.shellId) return;
+          const d = await post('/api/op/shell', { action: 'read', id: s.shellId, since: s.cursor || 0 });
+          if (d.ok) {
+            (d.lines || []).forEach(l => this.append(id, { at: Date.now(), text: l.text }));
+            if (typeof d.cursor === 'number') s.cursor = d.cursor;
+            if (d.closed) { this.append(id, { at: Date.now(), text: '（系统终端进程已退出，输入新命令将自动重开）', level: 'WARN' }); s.shellId = null; }
+          }
+          return;
+        }
         const d = await post('/api/op/console', { since: s.cursor });
         if (d.ok) {
           (d.lines || []).forEach(l => this.append(id, l));

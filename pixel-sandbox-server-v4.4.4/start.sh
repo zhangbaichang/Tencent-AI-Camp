@@ -1,54 +1,100 @@
 #!/usr/bin/env bash
 # ============================================================
-# pixel-sandbox 联机服务端 · PM2 一键启动脚本（Linux / 宝塔面板）
-# 用法：  bash start.sh
-# 依赖：  Node.js 16+ 与 pm2（宝塔【软件商店】装 Node 版本管理器 + npm i -g pm2）
+#  Pixel Sandbox 一键启动脚本 (Linux / macOS)
+# ------------------------------------------------------------
+#  用法:
+#    ./start.sh            一键启动（依赖缺失自动安装，前台运行）
+#    ./start.sh install    仅安装依赖 (npm install --omit=dev)
+#    ./start.sh start      启动（默认；检测到 pm2 则用 pm2 托管）
+#    ./start.sh stop       停止服务
+#    ./start.sh restart    重启服务
+#    ./start.sh status     查看运行状态
+#    ./start.sh frp        查看 SakuraFrp 公网地址
+#  生产部署可用 OP_PASSWORD / PORT 环境变量。
 # ============================================================
-set -e
+set -euo pipefail
 
-# 1) 定位到脚本所在目录，进入 server/（server.js 的 ROOT = 上级目录需含 index.html）
-SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-cd "$SCRIPT_DIR/server"
-echo "📁 工作目录: $(pwd)"
+APP_ROOT="$(cd "$(dirname "$0")" && pwd)"
+SERVER_DIR="$APP_ROOT/server"
+WS_MODULE="$SERVER_DIR/node_modules/ws"
+PORT="${PORT:-8080}"
 
-# 2) 环境探测
-if ! command -v node >/dev/null 2>&1; then
-  echo "❌ 未找到 node，请先在宝塔安装 Node.js 16+"
-  exit 1
-fi
-if ! command -v pm2 >/dev/null 2>&1; then
-  echo "❌ 未找到 pm2，请先执行: npm install -g pm2"
-  exit 1
-fi
-echo "✅ node: $(node -v)   pm2: $(pm2 -v)"
+echo "========================================"
+echo " Pixel Sandbox 启动工具 (V4.4.4)"
+echo "========================================"
 
-# 3) 安装依赖（仅在 node_modules 不存在时拉包，避免重复 install）
-if [ ! -d node_modules ]; then
-  echo "📦 安装依赖 (npm install) ..."
-  npm install
-else
-  echo "📦 node_modules 已存在，跳过 npm install"
-fi
+ensure_node() {
+  if ! command -v node >/dev/null 2>&1; then
+    echo "[ERROR] 未找到 Node.js，请先安装 Node.js (>=24)。"
+    exit 1
+  fi
+}
 
-# 4) 启动 / 重载（同名进程存在则热重载，避免重复实例占端口）
-if pm2 describe pixel-sandbox >/dev/null 2>&1; then
-  echo "🔄 重载已有 pixel-sandbox 进程 ..."
-  pm2 reload pixel-sandbox
-else
-  echo "🚀 首次启动 pixel-sandbox ..."
-  # 生产环境建议去掉 --watch（文件变动会自动重启）；调试期保留更方便
-  pm2 start server.js --name pixel-sandbox --watch
-fi
+install_deps() {
+  ensure_node
+  echo "[INFO] 安装依赖..."
+  (cd "$SERVER_DIR" && npm install --omit=dev)
+  echo "[OK] 依赖安装完成。"
+}
 
-# 5) 持久化进程列表（配合 pm2 startup 实现开机自启）
-pm2 save
+start_server() {
+  ensure_node
+  if [ ! -d "$WS_MODULE" ]; then
+    install_deps
+  fi
+  echo "[INFO] 监听地址: 0.0.0.0:${PORT}"
+  echo "[INFO] 保持此终端打开 = 服务器运行中；Ctrl+C 停止。"
+  if command -v pm2 >/dev/null 2>&1; then
+    echo "[INFO] 检测到 pm2，使用 pm2 托管 (deploy/linux/ecosystem.config.js)。"
+    pm2 start "$APP_ROOT/deploy/linux/ecosystem.config.js"
+    return
+  fi
+  cd "$SERVER_DIR" && exec node server.js
+}
 
-echo ""
-echo "✅ 启动完成！"
-echo "   直连访问 : http://<服务器IP>:8080"
-echo "   查看日志 : pm2 logs pixel-sandbox"
-echo "   查看状态 : pm2 status"
-echo ""
-echo "⚠️ 首次部署请手动执行一次开机自启（需 root 权限）："
-echo "   pm2 startup"
-echo "   pm2 save"
+stop_server() {
+  if command -v pm2 >/dev/null 2>&1; then
+    pm2 stop pixel-sandbox 2>/dev/null || true
+  fi
+  if pgrep -f '[s]erver\.js' >/dev/null 2>&1; then
+    pkill -f '[s]erver\.js' && echo "[OK] 已停止服务。" || echo "[WARN] 停止失败，请手动结束 node 进程。"
+  else
+    echo "[INFO] 没有运行中的服务。"
+  fi
+}
+
+status_server() {
+  if pgrep -f '[s]erver\.js' >/dev/null 2>&1; then
+    echo "[OK] 服务运行中。PID: $(pgrep -f '[s]erver\.js' | tr '\n' ' ')"
+  else
+    echo "[INFO] 服务未运行。"
+  fi
+}
+
+frp_info() {
+  ensure_node
+  if [ ! -f "$SERVER_DIR/sakura-frp.js" ]; then
+    echo "[ERROR] 找不到 $SERVER_DIR/sakura-frp.js"
+    exit 1
+  fi
+  (cd "$SERVER_DIR" && node -e "const m=require('./sakura-frp'); console.log(JSON.stringify(m.getPublicAddressInfo(),null,2))")
+}
+
+CMD="${1:-start}"
+case "$CMD" in
+  install) install_deps ;;
+  start)   start_server ;;
+  stop)    stop_server ;;
+  restart)
+    if command -v pm2 >/dev/null 2>&1; then
+      pm2 restart pixel-sandbox 2>/dev/null || pm2 start "$APP_ROOT/deploy/linux/ecosystem.config.js"
+    else
+      stop_server
+      sleep 1
+      start_server
+    fi
+    ;;
+  status)  status_server ;;
+  frp)     frp_info ;;
+  *) echo "用法: $0 {start|stop|restart|status|install|frp}"; exit 1 ;;
+esac
