@@ -154,6 +154,14 @@ Object.assign(BLOCKS, {
   91: {id:91,name:'面包',     color:'#c89050',shade:'#9c6420',solid:false,hardness:0,light:0,item:true,food:8},
   92: {id:92,name:'熟肉',     color:'#a06038',shade:'#6e3c1c',solid:false,hardness:0,light:0,item:true,food:12},
   93: {id:93,name:'金苹果',   color:'#f0d040',shade:'#c09810',solid:false,hardness:0,light:0,item:true,food:20},
+  // ---- 扩展食物（恢复饱食度，右键/放置键即食）----
+  102:{id:102,name:'胡萝卜',  color:'#e8822a',shade:'#b05a10',solid:false,hardness:0,light:0,item:true,food:3},
+  103:{id:103,name:'烤土豆',  color:'#d8b060',shade:'#a07830',solid:false,hardness:0,light:0,item:true,food:6},
+  104:{id:104,name:'生鱼',    color:'#8ab8d0',shade:'#5a8898',solid:false,hardness:0,light:0,item:true,food:2},
+  105:{id:105,name:'熟鱼',    color:'#d0a060',shade:'#a07030',solid:false,hardness:0,light:0,item:true,food:6},
+  106:{id:106,name:'牛排',    color:'#a04030',shade:'#701810',solid:false,hardness:0,light:0,item:true,food:10},
+  107:{id:107,name:'蛋糕',    color:'#f0d0a0',shade:'#d0a070',solid:false,hardness:0,light:0,item:true,food:14},
+  108:{id:108,name:'西瓜',    color:'#3a9a3a',shade:'#1a6a1a',solid:false,hardness:0,light:0,item:true,food:4},
   // ---- 铀 / 核能（ORE_CONFIG 会生成 97 铀矿，此前缺失导致 BLOCKS[97] 未定义：渲染告警、非实心使玩家掉穿、无法挖掘）----
   97: {id:97,name:'铀矿石',   color:'#5a7a4a',shade:'#3a5a2a',solid:true, hardness:34,light:0,item:true,tool:3,element:'U'},
   98: {id:98,name:'浓缩铀',   color:'#7ac050',shade:'#4a8030',solid:true, hardness:20,light:0,item:true,element:'U'},
@@ -178,6 +186,7 @@ const BLOCK_NAMES = {
   hydrogen_block:65, aluminum_ore:66, zinc_ore:67, nickel_ore:68, titanium_ore:69, magnesium_ore:70,
   aluminum_block:71, zinc_block:72, nickel_block:73, titanium_block:74, magnesium_block:75,
   brass_block:76, stainless_steel:77, flash_bang:78, apple:90, bread:91, cooked_meat:92, golden_apple:93, iron_helmet:94, iron_chestplate:95, diamond_chestplate:96, uranium_ore:97, enriched_uranium:98, nuclear_fuel:99, nuclear_reactor:100, coolant:101,
+  carrot:102, baked_potato:103, raw_fish:104, cooked_fish:105, steak:106, cake:107, watermelon:108,
   wooden_sword:79, stone_sword:80, iron_sword:81, diamond_pickaxe:82, diamond_sword:83,
 };
 
@@ -253,6 +262,12 @@ const RECIPES = [
   { input: {61:1, 55:1},       output: {65:2},  needs:'workbench',  name:'氢气块',   chem:'2H₂O →(电解) 2H₂↑ + O₂↑（电池组供电电解水）' },
   // ---- 闪光弹（镁弹：镁燃烧 2Mg+O₂→2MgO 耀眼白光，致盲效果）----
   { input: {75:1, 52:1},       output: {78:2},  needs:'workbench',  name:'闪光弹',   chem:'Mg + 火药 →(引燃) 2Mg+O₂→2MgO 白光（镁弹致盲）' },
+  // ---- 食物（恢复饱食度；右键/放置键即食）----
+  { input: {90:2},             output: {91:1},  needs:'none',      name:'面包',     chem:'苹果 → 面包（烘焙）' },
+  { input: {1:1},              output: {102:1}, needs:'none',      name:'胡萝卜',   chem:'草方块 → 胡萝卜（采集）' },
+  { input: {91:2, 90:1},       output: {107:1}, needs:'workbench', name:'蛋糕',     chem:'面包 + 苹果 → 蛋糕（烘焙）' },
+  { input: {102:2, 12:1},      output: {108:1}, needs:'workbench', name:'西瓜',     chem:'胡萝卜 + 水 → 西瓜（嫁接）' },
+  { input: {92:1, 7:1},        output: {106:1}, needs:'furnace',   name:'牛排',     chem:'熟肉 + 煤 → 牛排（炙烤）' },
 ];
 
 // ===== 矿石生成配置 =====

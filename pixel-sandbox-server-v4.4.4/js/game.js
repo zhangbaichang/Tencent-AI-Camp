@@ -1725,6 +1725,7 @@ function handleMining(tx, ty, dt) {
     const dropId = block.drop || tileId;
     addItem(dropId, 1);
     if (tileId === 5 && Math.random() < SAPLING_DROP_CHANCE) addItem(64, 1); // 树叶有概率掉树苗
+    if (tileId === 5 && Math.random() < 0.10) addItem(90, 1); // 树叶有概率掉苹果（食物来源）
     setTile(tx, ty, 0);
     if (tileId === 64) game.saplings.delete(ty * WORLD_W + tx); // 挖掉树苗，移出生长表
     syncBlockChange(tx, ty, 0);
@@ -1763,6 +1764,13 @@ function handleMining(tx, ty, dt) {
 function handlePlacing(tx, ty) {
   // 桶类物品不能当成方块放置（舀/倒由 tryBucketAction 处理）
   const holdBlk = BLOCKS[game.hotbar[game.selectedSlot]];
+  // 食物：右键/放置键 = 食用，而不是放置（修复“苹果只能放置不能吃”）
+  if (holdBlk && holdBlk.food) {
+    if (isCreativeMode()) { showToast('创造模式无需进食', 900); return; }
+    if ((game.hunger || 0) >= (game.maxHunger || 20)) { showToast('饱食度已满，无需进食', 900); return; }
+    useSelectedFood();
+    return;
+  }
   if (holdBlk && holdBlk.placeable === false) {
     showToast('桶请右键使用：舀水或岩浆 / 倒在空处', 900);
     return;
@@ -3236,43 +3244,45 @@ function drawTilesDirect(ctx, tx, ty, sx, sy) {
         ctx.fillStyle = '#1a0a04';                        // 底部灰烬
         ctx.fillRect(sx, sy + TILE - 3, TILE, 3);
       }
-      // 水：按水位分级绘制（流体物理），露出水面线
+      // 水：统一画满整格（不再按 level 逐格矮化，避免相邻格之间露黑缝/竖条）
       if (id === 12) {
-        const lvl = game.waterLevels[ty * WORLD_W + tx] || 4;
-        const wh = Math.max(4, Math.round((lvl / 4) * TILE)); // 水体高度
-        const top = sy + (TILE - wh);
+        const submerged = ty > 0 && game.world[(ty - 1) * WORLD_W + tx] === 12;
         // 整格淡蓝（背后的景物透出一点水感）
         ctx.fillStyle = 'rgba(40,96,168,0.55)';
         ctx.fillRect(sx, sy, TILE, TILE);
-        // 水体本体
+        // 水体本体（满格）
         ctx.fillStyle = block.color;
-        ctx.fillRect(sx, top, TILE, wh);
-        // 水面高光线
-        ctx.fillStyle = 'rgba(150,205,255,0.55)';
-        ctx.fillRect(sx, top, TILE, 2);
-        // 细微波纹
-        ctx.fillStyle = 'rgba(255,255,255,0.12)';
-        ctx.fillRect(sx + ((tx * 7 + ty * 3) % (TILE - 6)), top + 4, 4, 1);
+        ctx.fillRect(sx, sy, TILE, TILE);
+        // 只有液柱最顶层才画水面高光/波纹；内部不画线，避免横向条纹
+        if (!submerged) {
+          ctx.fillStyle = 'rgba(150,205,255,0.55)';
+          ctx.fillRect(sx, sy, TILE, 2);
+          ctx.fillStyle = 'rgba(255,255,255,0.12)';
+          ctx.fillRect(sx + ((tx * 7 + ty * 3) % (TILE - 6)), sy + 4, 4, 1);
+        }
       }
-      // 岩浆：按岩浆量分级绘制（流体物理），露出熔岩面，深度越浅露出的底越多
+      // 岩浆：统一画满整格，仅顶层亮面 + 底部辉光（不再逐格矮化）
       if (id === 63) {
-        const l = game.lavaLevels[ty * WORLD_W + tx] || 4;
-        const wh = Math.max(4, Math.round((l / 4) * TILE)); // 岩浆体高度
-        const top = sy + (TILE - wh);
+        const submerged = ty > 0 && game.world[(ty - 1) * WORLD_W + tx] === 63;
+        const bottom = ty >= WORLD_H - 1 || game.world[(ty + 1) * WORLD_W + tx] !== 63;
         // 暗红基底（整格）
         ctx.fillStyle = '#3a1205';
         ctx.fillRect(sx, sy, TILE, TILE);
-        // 岩浆体
+        // 岩浆体（满格）
         ctx.fillStyle = block.color; // #e0581a
-        ctx.fillRect(sx, top, TILE, wh);
-        // 顶部熔岩亮面（橙黄）
-        ctx.fillStyle = 'rgba(255,150,40,0.9)';
-        ctx.fillRect(sx, top, TILE, 2);
-        ctx.fillStyle = 'rgba(255,90,20,0.5)';
-        ctx.fillRect(sx, top + 2, TILE, 2);
-        // 底部辉光
-        ctx.fillStyle = 'rgba(255,200,60,0.22)';
-        ctx.fillRect(sx + 2, sy + TILE - 4, TILE - 4, 4);
+        ctx.fillRect(sx, sy, TILE, TILE);
+        // 顶部熔岩亮面：只在最顶层画，避免岩浆体内部出现横向亮条
+        if (!submerged) {
+          ctx.fillStyle = 'rgba(255,150,40,0.9)';
+          ctx.fillRect(sx, sy, TILE, 2);
+          ctx.fillStyle = 'rgba(255,90,20,0.5)';
+          ctx.fillRect(sx, sy + 2, TILE, 2);
+        }
+        // 底部辉光：只在岩浆体底部画，避免逐格横条
+        if (bottom) {
+          ctx.fillStyle = 'rgba(255,200,60,0.22)';
+          ctx.fillRect(sx + 2, sy + TILE - 4, TILE - 4, 4);
+        }
       }
       // 灯笼（光源）
       if (id === 32) {

@@ -343,7 +343,7 @@ const CHAT_MIN_INTERVAL = 500;          // 聊天最小间隔（毫秒），防�
 const PVP_MAX_DAMAGE = 20;              // PVP 单次伤害上限（防伪造高伤害）
 const PVP_MAX_RANGE = 400;
 const MAX_HUNGER=20, HUNGER_TICK_MS=30000, STARVATION_DAMAGE=2;
-const FOOD_VALUES={90:5,91:8,92:12,93:20};
+const FOOD_VALUES={90:5,91:8,92:12,93:20,102:3,103:6,104:2,105:6,106:10,107:14,108:4};
 const ARMOR_VALUES={94:5,95:12,96:20};
 function xpNeed(l){return 100+Math.max(0,(Number(l)||1)-1)*50;}
 function armorReduction(p){return Math.min(80,Math.max(0,Number(p.armor)||0));}

@@ -915,10 +915,13 @@ body.touch-device .hud-btn#btn-mute { display: none; }
   background: rgba(0,212,255,0.3);
 }
 
+/* 右上角两个 HUD 按钮并排，避免 🔊 与 ⚙️ 重叠（UI 修复） */
+#btn-settings { right: 62px; }
+
 /* ---- 在线玩家列表 ---- */
 #player-list {
   position: fixed;
-  top: 74px; /* 避开血条、饥饿/护甲/经验 HUD（画布约 y:10~70） */
+  top: 100px; /* 避开血条、饥饿/护甲/经验 HUD（画布约 y:10~70），留出明显间距 */
   left: 10px;
   right: auto;
   z-index: 50;
@@ -1014,7 +1017,7 @@ body.touch-device .hud-btn#btn-mute { display: none; }
 
 /* 手机端：在线玩家列表同样移到血条下方（与桌面一致） */
 body.touch-device #player-list {
-  top: calc(74px + var(--sa-top));
+  top: calc(100px + var(--sa-top));
   left: calc(10px + var(--sa-left));
   right: auto;
 }
@@ -1999,7 +2002,7 @@ body.desktop-device #mobile-controls {
 
 /* V4.1.4：HUD 与在线玩家列表留出明确间距，避免状态条变化时互相覆盖。 */
 #player-list {
-  top: 82px;
+  top: 100px;
   max-height: 120px;
 }
 #player-list-body {
